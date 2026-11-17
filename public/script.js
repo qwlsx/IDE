@@ -2,10 +2,13 @@ const taskForm = document.querySelector("#task-form");
 const taskInput = document.querySelector("#task-input");
 const taskList = document.querySelector("#task-list");
 
-let tasks = [
-  { id: 1, text: "Finish the programming exercise", completed: false },
-  { id: 2, text: "Read the course material", completed: true }
-];
+let tasks = [];
+
+async function loadTasks() {
+  const response = await fetch("/api/tasks");
+  tasks = await response.json();
+  renderTasks();
+}
 
 function renderTasks() {
   taskList.innerHTML = "";
@@ -28,7 +31,9 @@ function renderTasks() {
     completeButton.type = "button";
     completeButton.className = "complete-button";
     completeButton.textContent = task.completed ? "Undo" : "Complete";
-    completeButton.addEventListener("click", () => toggleTask(task.id));
+    completeButton.addEventListener("click", () => {
+      toggleTask(task.id, !task.completed);
+    });
 
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
@@ -42,29 +47,37 @@ function renderTasks() {
   });
 }
 
-function addTask(text) {
-  const newTask = {
-    id: Date.now(),
-    text: text,
-    completed: false
-  };
+async function addTask(text) {
+  const response = await fetch("/api/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text })
+  });
+  const task = await response.json();
 
-  tasks.push(newTask);
+  tasks.push(task);
   renderTasks();
 }
 
-function toggleTask(id) {
-  const task = tasks.find((item) => item.id === id);
-  task.completed = !task.completed;
+async function toggleTask(id, completed) {
+  const response = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ completed: completed })
+  });
+  const updatedTask = await response.json();
+
+  tasks = tasks.map((task) => task.id === id ? updatedTask : task);
   renderTasks();
 }
 
-function deleteTask(id) {
+async function deleteTask(id) {
+  await fetch(`/api/tasks/${id}`, { method: "DELETE" });
   tasks = tasks.filter((item) => item.id !== id);
   renderTasks();
 }
 
-taskForm.addEventListener("submit", (event) => {
+taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const text = taskInput.value.trim();
@@ -73,9 +86,9 @@ taskForm.addEventListener("submit", (event) => {
     return;
   }
 
-  addTask(text);
+  await addTask(text);
   taskInput.value = "";
   taskInput.focus();
 });
 
-renderTasks();
+loadTasks();
